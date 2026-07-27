@@ -1,0 +1,25 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.codex.checkstock"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.codex.checkstock"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+        buildConfigField "String", "DEFAULT_SERVER_URL", "\"\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation "com.google.zxing:core:3.5.3"
+}
