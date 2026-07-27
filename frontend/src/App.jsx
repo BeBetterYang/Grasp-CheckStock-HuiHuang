@@ -763,16 +763,20 @@ function App() {
   }
 
   const deleteHistory = async row => {
-    const confirmed = await Dialog.confirm({
-      title: '删除历史记录',
-      content: '删除后会同步删除本次 PDA 写入的盘点明细，是否继续？',
-      confirmText: '删除',
-      cancelText: '取消',
-    })
-    if (!confirmed) return
-    await api(`/api/history/${row.submitID}`, { method: 'DELETE' })
-    Toast.show({ icon: 'success', content: '已删除' })
-    await loadHistory()
+    try {
+      const confirmed = await Dialog.confirm({
+        title: '删除历史记录',
+        content: '删除后会同步删除本次 PDA 写入的盘点明细，是否继续？',
+        confirmText: '删除',
+        cancelText: '取消',
+      })
+      if (!confirmed) return
+      const result = await api(`/api/history/${row.submitID}`, { method: 'DELETE' })
+      Toast.show({ icon: result.deleted ? 'success' : 'fail', content: result.deleted ? '已删除' : '记录不存在或已删除' })
+      await loadHistory()
+    } catch (err) {
+      Toast.show({ icon: 'fail', content: err.message || '删除失败' })
+    }
   }
 
   const handleScannedValue = async (value, target) => {
@@ -1398,6 +1402,11 @@ function BatchPage({ item, batches, setPage, updateBatchUnitCount, setEditingBat
 }
 
 function HistoryPage({ rows, setPage, refresh, loadHistoryToCheck, deleteHistory }) {
+  const stopRowEvent = event => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   return (
     <div className="page-shell">
       <NavBar
@@ -1420,8 +1429,11 @@ function HistoryPage({ rows, setPage, refresh, loadHistoryToCheck, deleteHistory
               <Button
                 fill="none"
                 className="delete-action history-delete"
+                onPointerDown={stopRowEvent}
+                onMouseDown={stopRowEvent}
+                onTouchStart={stopRowEvent}
                 onClick={event => {
-                  event.stopPropagation()
+                  stopRowEvent(event)
                   deleteHistory(row)
                 }}
               >

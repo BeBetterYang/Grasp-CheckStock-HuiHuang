@@ -571,39 +571,72 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
     await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
     try
     {
-        var headerId = await InsertScalarInt(conn, tx, """
-            SELECT ISNULL(MAX(HeaderID), 0)
-            FROM CodexPdaCheckSubmit
-            WHERE SubmitID = @SubmitID
-            """,
-            ("@SubmitID", submitId));
+        await using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            DECLARE @HeaderID int;
+            DECLARE @CheckedCountIDs TABLE(ID int NOT NULL PRIMARY KEY);
 
-        await Execute(conn, tx, """
+            SELECT @HeaderID = HeaderID
+            FROM CodexPdaCheckSubmit
+            WHERE SubmitID = @SubmitID;
+
+            IF @HeaderID IS NULL
+            BEGIN
+                SELECT CAST(0 AS int) AS DeletedCheckedCount,
+                       CAST(0 AS int) AS DeletedMap,
+                       CAST(0 AS int) AS DeletedDetail,
+                       CAST(0 AS int) AS DeletedSubmit,
+                       CAST(0 AS int) AS DeletedHeader;
+                RETURN;
+            END
+
+            INSERT INTO @CheckedCountIDs(ID)
+            SELECT DISTINCT m.CheckedCountID
+            FROM CodexPdaCheckedCountMap m
+            INNER JOIN CodexPdaCheckSubmitDetail d ON d.DetailID = m.SubmitDetailID
+            WHERE d.SubmitID = @SubmitID
+              AND m.CheckedCountID > 0;
+
             DELETE cc
             FROM CheckedCount cc
-            INNER JOIN CodexPdaCheckedCountMap m ON m.CheckedCountID = cc.ID
-            INNER JOIN CodexPdaCheckSubmitDetail d ON d.DetailID = m.SubmitDetailID
-            INNER JOIN CodexPdaCheckSubmit s ON s.SubmitID = d.SubmitID
-            WHERE d.SubmitID = @SubmitID
-              AND cc.KTypeID = s.KTypeID
-              AND cc.Date = s.CheckDate
-              AND cc.PTypeID = d.PTypeID
-              AND cc.UpdateTag = m.UpdateTag;
+            INNER JOIN @CheckedCountIDs ids ON ids.ID = cc.ID;
+            DECLARE @DeletedCheckedCount int = @@ROWCOUNT;
 
             DELETE m
             FROM CodexPdaCheckedCountMap m
             INNER JOIN CodexPdaCheckSubmitDetail d ON d.DetailID = m.SubmitDetailID
             WHERE d.SubmitID = @SubmitID;
+            DECLARE @DeletedMap int = @@ROWCOUNT;
 
             DELETE FROM CodexPdaCheckSubmitDetail WHERE SubmitID = @SubmitID;
+            DECLARE @DeletedDetail int = @@ROWCOUNT;
+
             DELETE FROM CodexPdaCheckSubmit WHERE SubmitID = @SubmitID;
-            DELETE FROM CodexPdaCheckHeader WHERE HeaderID = @HeaderID;
-            """,
-            ("@SubmitID", submitId),
-            ("@HeaderID", headerId));
+            DECLARE @DeletedSubmit int = @@ROWCOUNT;
+
+            DELETE FROM CodexPdaCheckHeader
+            WHERE HeaderID = @HeaderID
+              AND NOT EXISTS (SELECT 1 FROM CodexPdaCheckSubmit WHERE HeaderID = @HeaderID);
+            DECLARE @DeletedHeader int = @@ROWCOUNT;
+
+            SELECT @DeletedCheckedCount AS DeletedCheckedCount,
+                   @DeletedMap AS DeletedMap,
+                   @DeletedDetail AS DeletedDetail,
+                   @DeletedSubmit AS DeletedSubmit,
+                   @DeletedHeader AS DeletedHeader;
+            """;
+        cmd.Parameters.AddWithValue("@SubmitID", submitId);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        await reader.ReadAsync();
+        var deletedCheckedCount = reader.GetInt32(0);
+        var deletedMap = reader.GetInt32(1);
+        var deletedDetail = reader.GetInt32(2);
+        var deletedSubmit = reader.GetInt32(3);
+        var deletedHeader = reader.GetInt32(4);
 
         await tx.CommitAsync();
-        return Results.Ok(new { deleted = true, submitId });
+        return Results.Ok(new { deleted = deletedSubmit > 0, submitId, deletedCheckedCount, deletedMap, deletedDetail, deletedSubmit, deletedHeader });
     }
     catch (Exception ex)
     {
