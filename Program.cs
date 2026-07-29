@@ -565,7 +565,12 @@ app.MapGet("/api/history/{submitId:int}", async (Db db, int submitId) =>
     return Results.Ok(rows);
 });
 
-app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
+app.MapDelete("/api/history/{submitId:int}", DeletePdaHistory);
+app.MapPost("/api/history/{submitId:int}/delete", DeletePdaHistory);
+
+app.Run();
+
+static async Task<IResult> DeletePdaHistory(Db db, int submitId)
 {
     await using var conn = await db.OpenAsync();
     await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
@@ -627,9 +632,7 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
         await tx.RollbackAsync();
         return Results.Problem(ex.Message);
     }
-});
-
-app.Run();
+}
 
 static async Task<GoodsSaveInfo> LoadGoodsSaveInfo(SqlConnection conn, SqlTransaction tx, string ptypeid)
 {

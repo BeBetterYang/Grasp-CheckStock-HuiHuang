@@ -771,7 +771,7 @@ function App() {
         cancelText: '取消',
       })
       if (!confirmed) return
-      const result = await api(`/api/history/${row.submitID}`, { method: 'DELETE' })
+      const result = await api(`/api/history/${row.submitID}/delete`, { method: 'POST' })
       Toast.show({ icon: result.deleted ? 'success' : 'fail', content: result.deleted ? '已删除' : '记录不存在或已删除' })
       await loadHistory()
     } catch (err) {
