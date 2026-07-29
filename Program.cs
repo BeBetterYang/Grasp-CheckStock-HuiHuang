@@ -575,7 +575,6 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
         cmd.Transaction = tx;
         cmd.CommandText = """
             DECLARE @HeaderID int;
-            DECLARE @CheckedCountIDs TABLE(ID int NOT NULL PRIMARY KEY);
 
             SELECT @HeaderID = HeaderID
             FROM CodexPdaCheckSubmit
@@ -583,20 +582,12 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
 
             IF @HeaderID IS NULL
             BEGIN
-                SELECT CAST(0 AS int) AS DeletedCheckedCount,
-                       CAST(0 AS int) AS DeletedMap,
+                SELECT CAST(0 AS int) AS DeletedMap,
                        CAST(0 AS int) AS DeletedDetail,
                        CAST(0 AS int) AS DeletedSubmit,
                        CAST(0 AS int) AS DeletedHeader;
                 RETURN;
             END
-
-            INSERT INTO @CheckedCountIDs(ID)
-            SELECT DISTINCT m.CheckedCountID
-            FROM CodexPdaCheckedCountMap m
-            INNER JOIN CodexPdaCheckSubmitDetail d ON d.DetailID = m.SubmitDetailID
-            WHERE d.SubmitID = @SubmitID
-              AND m.CheckedCountID > 0;
 
             DELETE m
             FROM CodexPdaCheckedCountMap m
@@ -615,13 +606,7 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
               AND NOT EXISTS (SELECT 1 FROM CodexPdaCheckSubmit WHERE HeaderID = @HeaderID);
             DECLARE @DeletedHeader int = @@ROWCOUNT;
 
-            DELETE cc
-            FROM CheckedCount cc
-            INNER JOIN @CheckedCountIDs ids ON ids.ID = cc.ID;
-            DECLARE @DeletedCheckedCount int = @@ROWCOUNT;
-
-            SELECT @DeletedCheckedCount AS DeletedCheckedCount,
-                   @DeletedMap AS DeletedMap,
+            SELECT @DeletedMap AS DeletedMap,
                    @DeletedDetail AS DeletedDetail,
                    @DeletedSubmit AS DeletedSubmit,
                    @DeletedHeader AS DeletedHeader;
@@ -629,14 +614,13 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
         cmd.Parameters.AddWithValue("@SubmitID", submitId);
         await using var reader = await cmd.ExecuteReaderAsync();
         await reader.ReadAsync();
-        var deletedCheckedCount = reader.GetInt32(0);
-        var deletedMap = reader.GetInt32(1);
-        var deletedDetail = reader.GetInt32(2);
-        var deletedSubmit = reader.GetInt32(3);
-        var deletedHeader = reader.GetInt32(4);
+        var deletedMap = reader.GetInt32(0);
+        var deletedDetail = reader.GetInt32(1);
+        var deletedSubmit = reader.GetInt32(2);
+        var deletedHeader = reader.GetInt32(3);
 
         await tx.CommitAsync();
-        return Results.Ok(new { deleted = deletedSubmit > 0, submitId, deletedCheckedCount, deletedMap, deletedDetail, deletedSubmit, deletedHeader });
+        return Results.Ok(new { deleted = deletedSubmit > 0, submitId, deletedMap, deletedDetail, deletedSubmit, deletedHeader });
     }
     catch (Exception ex)
     {

@@ -766,7 +766,7 @@ function App() {
     try {
       const confirmed = await Dialog.confirm({
         title: '删除历史记录',
-        content: '删除后会同步删除本次 PDA 写入的盘点明细，是否继续？',
+        content: '仅删除本次 PDA 提交历史，不会删除 ERP 盘点数据，是否继续？',
         confirmText: '删除',
         cancelText: '取消',
       })
