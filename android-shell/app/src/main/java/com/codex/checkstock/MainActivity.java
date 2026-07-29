@@ -49,6 +49,8 @@ import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.GlobalHistogramBinarizer;
 import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -269,21 +271,24 @@ public class MainActivity extends Activity {
     }
 
     private void startServerScanner() {
-        scannerMode = SCAN_MODE_SERVER;
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] { Manifest.permission.CAMERA }, REQ_SCAN_CAMERA);
-            return;
-        }
-        showScannerViewV2();
+        launchJourneyAppsScanner(SCAN_MODE_SERVER);
     }
 
     private void startWebScanner() {
-        scannerMode = SCAN_MODE_WEB;
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] { Manifest.permission.CAMERA }, REQ_SCAN_CAMERA);
-            return;
-        }
-        showScannerViewV2();
+        launchJourneyAppsScanner(SCAN_MODE_WEB);
+    }
+
+    private void launchJourneyAppsScanner(int mode) {
+        scannerMode = mode;
+        scannerActive = true;
+        IntentIntegrator integrator = new IntentIntegrator(this);
+        integrator.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
+        integrator.setPrompt("请将条码或二维码放入框内");
+        integrator.setCameraId(0);
+        integrator.setBeepEnabled(false);
+        integrator.setBarcodeImageEnabled(false);
+        integrator.setOrientationLocked(false);
+        integrator.initiateScan();
     }
 
     private void showScannerViewV2() {
@@ -656,6 +661,33 @@ public class MainActivity extends Activity {
         hardwareScanBuffer.setLength(0);
         mainHandler.removeCallbacks(hardwareScanTimeout);
         stopScanner();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        if (result != null) {
+            scannerActive = false;
+            String text = result.getContents();
+            if (text == null || text.trim().isEmpty()) {
+                return;
+            }
+            text = text.trim();
+            if (scannerMode == SCAN_MODE_WEB && webView != null) {
+                dispatchWebScanResult(text);
+                return;
+            }
+            try {
+                String url = normalizeServerUrl(text);
+                prefs.edit().putString(KEY_SERVER_URL, url).apply();
+                openWeb(url);
+            } catch (IllegalArgumentException ex) {
+                showServerSetup(text);
+                Toast.makeText(this, ex.getMessage(), Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
