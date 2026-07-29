@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final StringBuilder hardwareScanBuffer = new StringBuilder();
     private final Runnable hardwareScanTimeout = this::flushHardwareScanBuffer;
+    private boolean waitingWebBackDecision = false;
     private final BroadcastReceiver scanReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -828,12 +829,33 @@ public class MainActivity extends Activity {
                 }
                 return true;
             }
+            if (webView != null && handleWebBack()) {
+                return true;
+            }
             if (webView != null && webView.canGoBack()) {
                 webView.goBack();
                 return true;
             }
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    private boolean handleWebBack() {
+        if (waitingWebBackDecision) return true;
+        waitingWebBackDecision = true;
+        webView.evaluateJavascript(
+                "(function(){return !!(window.__yodexHandleBack && window.__yodexHandleBack());})()",
+                value -> {
+                    waitingWebBackDecision = false;
+                    if (!"true".equals(value) && webView != null) {
+                        if (webView.canGoBack()) {
+                            webView.goBack();
+                        } else {
+                            finish();
+                        }
+                    }
+                });
+        return true;
     }
 
     private int dp(int value) {

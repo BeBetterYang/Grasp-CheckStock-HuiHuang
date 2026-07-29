@@ -598,11 +598,6 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
             WHERE d.SubmitID = @SubmitID
               AND m.CheckedCountID > 0;
 
-            DELETE cc
-            FROM CheckedCount cc
-            INNER JOIN @CheckedCountIDs ids ON ids.ID = cc.ID;
-            DECLARE @DeletedCheckedCount int = @@ROWCOUNT;
-
             DELETE m
             FROM CodexPdaCheckedCountMap m
             INNER JOIN CodexPdaCheckSubmitDetail d ON d.DetailID = m.SubmitDetailID
@@ -619,6 +614,11 @@ app.MapDelete("/api/history/{submitId:int}", async (Db db, int submitId) =>
             WHERE HeaderID = @HeaderID
               AND NOT EXISTS (SELECT 1 FROM CodexPdaCheckSubmit WHERE HeaderID = @HeaderID);
             DECLARE @DeletedHeader int = @@ROWCOUNT;
+
+            DELETE cc
+            FROM CheckedCount cc
+            INNER JOIN @CheckedCountIDs ids ON ids.ID = cc.ID;
+            DECLARE @DeletedCheckedCount int = @@ROWCOUNT;
 
             SELECT @DeletedCheckedCount AS DeletedCheckedCount,
                    @DeletedMap AS DeletedMap,

@@ -847,6 +847,29 @@ function App() {
     setScannerVisible(false)
   }
 
+  useEffect(() => {
+    window.__yodexHandleBack = () => {
+      if (scannerVisible) {
+        closeScanner()
+        return true
+      }
+      if (page === 'home') return false
+      if (page === 'check') {
+        backHomeFromCheck()
+        return true
+      }
+      if (page === 'batch') {
+        setPage('select')
+        return true
+      }
+      setPage('check')
+      return true
+    }
+    return () => {
+      if (window.__yodexHandleBack) delete window.__yodexHandleBack
+    }
+  }, [page, scannerVisible, hasDraftItems, check?.ktypeid, items.length])
+
   const scanLoop = async (detector, video, target) => {
     if (!streamRef.current) return
     try {
@@ -1403,7 +1426,6 @@ function BatchPage({ item, batches, setPage, updateBatchUnitCount, setEditingBat
 
 function HistoryPage({ rows, setPage, refresh, loadHistoryToCheck, deleteHistory }) {
   const stopRowEvent = event => {
-    event.preventDefault()
     event.stopPropagation()
   }
 
