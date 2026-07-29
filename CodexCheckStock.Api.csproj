@@ -16,8 +16,23 @@
 
   <ItemGroup>
     <Compile Remove="installer\**\*.cs" />
+    <Compile Remove="android-shell\**\*.cs" />
+    <Compile Remove="frontend\**\*.cs" />
+    <Compile Remove="verify-build\**\*.cs" />
+    <Compile Remove="installer-package\**\*.cs" />
+    <Compile Remove="audit-screenshots\**\*.cs" />
     <Content Remove="installer\**\*" />
+    <Content Remove="android-shell\**\*" />
+    <Content Remove="frontend\**\*" />
+    <Content Remove="verify-build\**\*" />
+    <Content Remove="installer-package\**\*" />
+    <Content Remove="audit-screenshots\**\*" />
     <None Remove="installer\**\*" />
+    <None Remove="android-shell\**\*" />
+    <None Remove="frontend\**\*" />
+    <None Remove="verify-build\**\*" />
+    <None Remove="installer-package\**\*" />
+    <None Remove="audit-screenshots\**\*" />
   </ItemGroup>
 
 </Project>
