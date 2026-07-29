@@ -573,12 +573,16 @@ app.Run();
 static async Task<IResult> DeletePdaHistory(Db db, int submitId)
 {
     await using var conn = await db.OpenAsync();
-    await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
     try
     {
         await using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
         cmd.CommandText = """
+            SET NOCOUNT ON;
+            SET XACT_ABORT ON;
+
+            BEGIN TRY
+                BEGIN TRAN;
+
             DECLARE @HeaderID int;
 
             SELECT @HeaderID = HeaderID
@@ -587,6 +591,8 @@ static async Task<IResult> DeletePdaHistory(Db db, int submitId)
 
             IF @HeaderID IS NULL
             BEGIN
+                    COMMIT TRAN;
+
                 SELECT CAST(0 AS int) AS DeletedMap,
                        CAST(0 AS int) AS DeletedDetail,
                        CAST(0 AS int) AS DeletedSubmit,
@@ -611,10 +617,20 @@ static async Task<IResult> DeletePdaHistory(Db db, int submitId)
               AND NOT EXISTS (SELECT 1 FROM CodexPdaCheckSubmit WHERE HeaderID = @HeaderID);
             DECLARE @DeletedHeader int = @@ROWCOUNT;
 
+                COMMIT TRAN;
+
             SELECT @DeletedMap AS DeletedMap,
                    @DeletedDetail AS DeletedDetail,
                    @DeletedSubmit AS DeletedSubmit,
                    @DeletedHeader AS DeletedHeader;
+            END TRY
+            BEGIN CATCH
+                IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+                DECLARE @ErrorMessage nvarchar(4000) = ERROR_MESSAGE();
+                DECLARE @ErrorSeverity int = ERROR_SEVERITY();
+                DECLARE @ErrorState int = ERROR_STATE();
+                RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
+            END CATCH
             """;
         cmd.Parameters.AddWithValue("@SubmitID", submitId);
         await using var reader = await cmd.ExecuteReaderAsync();
@@ -624,12 +640,10 @@ static async Task<IResult> DeletePdaHistory(Db db, int submitId)
         var deletedSubmit = reader.GetInt32(2);
         var deletedHeader = reader.GetInt32(3);
 
-        await tx.CommitAsync();
         return Results.Ok(new { deleted = deletedSubmit > 0, submitId, deletedMap, deletedDetail, deletedSubmit, deletedHeader });
     }
     catch (Exception ex)
     {
-        await tx.RollbackAsync();
         return Results.Problem(ex.Message);
     }
 }
