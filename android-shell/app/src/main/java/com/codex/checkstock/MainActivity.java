@@ -282,12 +282,13 @@ public class MainActivity extends Activity {
         scannerMode = mode;
         scannerActive = true;
         IntentIntegrator integrator = new IntentIntegrator(this);
+        integrator.setCaptureActivity(PortraitCaptureActivity.class);
         integrator.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
         integrator.setPrompt("请将条码或二维码放入框内");
         integrator.setCameraId(0);
         integrator.setBeepEnabled(false);
         integrator.setBarcodeImageEnabled(false);
-        integrator.setOrientationLocked(false);
+        integrator.setOrientationLocked(true);
         integrator.initiateScan();
     }
 
